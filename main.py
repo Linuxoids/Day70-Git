@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask, render_template, redirect, url_for, flash, request, abort
 from flask_bootstrap import Bootstrap
 from flask_ckeditor import CKEditor
@@ -13,12 +15,12 @@ from forms import CreatePostForm
 from flask_gravatar import Gravatar
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = '8BYkEfBA6O6donzWlSihBXox7C0sKR6b'
+app.config['SECRET_KEY'] = os.environ.get('APP_SECRET_KEY', "LocalKey")
 ckeditor = CKEditor(app)
 Bootstrap(app)
 
 ##CONNECT TO DB
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///blog.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DATABASE_URL",  "sqlite:///blog.db")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -76,7 +78,7 @@ class Comment(db.Model):
 def admin_only(function):
     @wraps(function)
     def wrapper(*args, **kwargs):
-        if current_user.is_authenticated and current_user.is_admin:
+        if current_user.is_authenticated and (current_user.is_admin or current_user.get_id() == 1):
             return function(*args, **kwargs)
         else:
             return abort(403)
@@ -98,7 +100,7 @@ gravatar = Gravatar(app,
 
 @app.route('/')
 def get_all_posts():
-    is_admin = current_user.is_authenticated and current_user.is_admin
+    is_admin = current_user.is_authenticated and (current_user.is_admin or current_user.get_id() == 1)
     posts = BlogPost.query.all()
     return render_template("index.html", all_posts=posts, is_admin=is_admin)
 
@@ -181,7 +183,7 @@ def show_post(post_id):
         else:
             flash("You have to log in before you can comment.")
 
-    is_admin = current_user.is_authenticated and current_user.is_admin
+    is_admin = current_user.is_authenticated and (current_user.is_admin or current_user.get_id() == 1)
 
     requested_post = BlogPost.query.get(post_id)
     comments = requested_post.comments
@@ -251,4 +253,4 @@ def delete_post(post_id):
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000)
